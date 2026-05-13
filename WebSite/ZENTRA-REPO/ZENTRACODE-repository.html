@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusGit Ultimate Enterprise - Intelligent Web IDE</title>
+  <!-- Load VS Code Monaco Editor Stylesheets from CDN -->
+  <link rel="stylesheet" data-name="vs/editor/default/node_modules/monaco-editor/min/vs/editor/editor.main.css" href="cloudflare.com">
+  <!-- Load JSZip for client-side project directory exporting -->
+  <script src="cloudflare.com"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0d1117;
+      color: #c9d1d9;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Universal GitHub-styled Top Control Navigation */
+    header {
+      background-color: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+    }
+    .top-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+    }
+    .repo-title { font-weight: 600; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; color: #e6edf3;}
+    .repo-badge { font-size: 0.75rem; border: 1px solid #30363d; padding: 2px 8px; border-radius: 20px; color: #8b949e; background-color: #21262d; }
+    
+    .action-btn-group { display: flex; gap: 8px; }
+    .btn-action {
+      padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-secondary { background-color: #21262d; border: 1px solid #30363d; color: #c9d1d9; }
+    .btn-secondary:hover { background-color: #30363d; }
+    .btn-success { background-color: #238636; border: 1px solid rgba(240,240,240,0.1); color: white; }
+    .btn-success:hover { background-color: #2ea043; }
+
+    /* Layout Tab Links row styling */
+    .nav-tabs { display: flex; gap: 8px; padding-left: 24px; }
+    .tab {
+      padding: 8px 16px; font-size: 0.88rem; color: #c9d1d9; cursor: pointer;
+      border-bottom: 2px solid transparent; transition: 0.2s;
+    }
+    .tab:hover { border-bottom-color: #8b949e; color: #f0f6fc; }
+    .tab.active { border-bottom-color: #f78166; font-weight: 600; color: #f0f6fc; }
+
+    /* Layout Container Split */
+    #main-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+    /* Directory Tree Sidebar */
+    #explorer-sidebar {
+      width: 260px; background-color: #0d1117; border-right: 1px solid #30363d;
+      display: flex; flex-direction: column; padding: 16px;
+    }
+    .sidebar-actions { display: flex; gap: 6px; margin-bottom: 16px; }
+    .file-tree { list-style: none; overflow-y: auto; flex: 1; }
+    .tree-node {
+      padding: 6px 8px; font-size: 0.88rem; cursor: pointer; border-radius: 4px;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 2px;
+    }
+    .tree-node:hover { background-color: #161b22; }
+    .tree-node.active-file { background-color: #21262d; color: #58a6ff; font-weight: 500; }
+    .node-depth-1 { padding-left: 24px; }
+
+    /* Central Code Workspace Wrapper Layout */
+    #workspace-view-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    
+    /* Code File Tab Rows Layout Component */
+    #editor-tab-row {
+      background-color: #161b22; border-bottom: 1px solid #30363d; display: flex; overflow-x: auto;
+    }
+    .editor-file-tab {
+      padding: 10px 16px; font-size: 0.82rem; font-family: monospace; border-right: 1px solid #30363d;
+      cursor: pointer; background-color: #0d1117; color: #8b949e; display: flex; align-items: center; gap: 8px;
+    }
+    .editor-file-tab.active { background-color: #161b22; color: #f0f6fc; font-weight: 500; border-top: 2px solid #f78166; }
+    .close-tab-btn { font-size: 0.75rem; color: #8b949e; border-radius: 50%; padding: 2px; }
+    .close-tab-btn:hover { background-color: #30363d; color: #f0f6fc; }
+
+    .editor-status-bar {
+      background-color: #161b22; border-bottom: 1px solid #30363d; padding: 10px 20px;
+      display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;
+    }
+    
+    #split-pane-editor-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+    #editor-viewport { flex: 1; height: 100%; }
+    
+    /* Markdown Split Live Rendering Pane Layout */
+    #markdown-preview-pane {
+      flex: 1; height: 100%; background-color: #0d1117; border-left: 1px solid #30363d;
+      padding: 24px; overflow-y: auto; display: none;
+    }
+    #markdown-preview-pane h1 { border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 16px; color: #f0f6fc; }
+    #markdown-preview-pane h2 { margin-top: 14px; margin-bottom: 8px; color: #e6edf3;}
+    #markdown-preview-pane p { margin-bottom: 12px; line-height: 1.6; color: #c9d1d9; }
+
+    /* Interactive Bash Terminal Shell Panel Component */
+    #terminal-panel {
+      height: 160px; background-color: #161b22; border-top: 1px solid #30363d;
+      font-family: 'Courier New', Courier, monospace; padding: 12px; display: flex; flex-direction: column;
+    }
+    .term-history { flex: 1; overflow-y: auto; font-size: 0.85rem; color: #7ee787; line-height: 1.4; }
+    .term-input-line { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #58a6ff; margin-top: 4px; }
+    .term-input-line input {
+      flex: 1; background: transparent; border: none; outline: none; color: #e6edf3; font-family: inherit;
+    }
+
+    /* Right Sidebar Prediction AI Layout Panel */
+    #ai-prediction-sidebar {
+      width: 320px; background-color: #161b22; border-left: 1px solid #30363d;
+      display: flex; flex-direction: column;
+    }
+    .ai-header { padding: 16px; border-bottom: 1px solid #30363d; font-weight: 600; font-size: 0.95rem; color: #f0f6fc; }
+    #ai-chat-viewport { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .msg { padding: 10px 14px; border-radius: 8px; font-size: 0.88rem; line-height: 1.4; max-width: 90%; word-break: break-word; }
+    .msg.user { background-color: #21262d; border: 1px solid #30363d; align-self: flex-end; color: #f0f6fc; }
+    .msg.bot { background-color: #0d1117; border: 1px solid #30363d; align-self: flex-start; }
+    .ai-input-bar { padding: 16px; border-top: 1px solid #30363d; display: flex; gap: 8px; }
+    .ai-input-bar input {
+      flex: 1; background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+      color: white; padding: 8px 12px; font-size: 0.85rem; outline: none;
+    }
+    .ai-input-bar button { background-color: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 0 12px; cursor: pointer; }
+
+    /* Modals Overlay Base styling */
+    .view-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: #0d1117; z-index: 500; padding: 40px; overflow-y: auto; display: none;
+    }
+    .view-overlay.visible { display: block; }
+    .mock-row { border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 12px; background-color: #161b22; }
+
+    /* GitHub Pages Deployment Subsystem Components Form Layout */
+    .deploy-form { max-width: 550px; display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.88rem; font-weight: 600; color: #8b949e; }
+    .form-group input {
+      background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+      color: white; padding: 8px 12px; font-size: 0.9rem; outline: none;
+    }
+    
+    #live-site-sandbox-frame {
+      width: 100%; height: 420px; background: white; border-radius: 6px; margin-top: 20px; border: none; display: none;
+    }
+
+    #drop-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(13, 17, 23, 0.95); border: 3px dashed #58a6ff;
+      display: flex; justify-content: center; align-items: center; z-index: 1000;
+      visibility: hidden; pointer-events: none;
+    }
+  </style>
+</head>
+<body ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
+
+  <!-- Header Section Frame -->
+  <header>
+    <div class="top-meta">
+      <div class="repo-title">📁 user-workspace / <strong>production-app-engine</strong> <span class="repo-badge">Public</span></div>
+      <div class="action-btn-group">
+        <button class="btn-action btn-secondary" onclick="switchMainTab('pages', document.getElementById('tab-pages-nav'))">🌐 Create Site</button>
+        <button class="btn-action btn-secondary" onclick="exportRepositoryZipArchive()">📥 Download ZIP</button>
+        <button class="btn-action btn-success" onclick="executeSiteDeployment()">Create Site</button>
+      </div>
+    </div>
+    
+    <!-- Action Tab Link Elements Routing Row -->
+    <nav class="nav-tabs">
+      <div class="tab active" onclick="switchMainTab('code', this)">💻 Code</div>
+      <div class="tab" id="tab-pages-nav" onclick="switchMainTab('pages', this)">🌐 GitHub Pages</div>
+      <div class="tab" onclick="switchMainTab('issues', this)">🟢 Issues</div>
+      <div class="tab" onclick="switchMainTab('actions', this)">⚡ Actions</div>
+      <div class="tab" onclick="switchMainTab('settings', this)">⚙️ Settings</div>
+    </nav>
+  </header>
+
+  <div id="main-container">
+    
+    <!-- Navigation Tree Sidebar Component Viewport -->
+    <aside id="explorer-sidebar">
+      <div class="sidebar-actions">
+        <button class="btn-action btn-secondary" style="flex:1;" onclick="addVirtualNode('file')">+ File</button>
+        <button class="btn-action btn-secondary" style="flex:1;" onclick="addVirtualNode('folder')">+ Folder</button>
+      </div>
+      <ul class="file-tree" id="vfs-tree-ui"></ul>
+    </aside>
+
+    <!-- Center Editor Matrix Panels Split Layout -->
+    <div id="workspace-view-wrapper">
+      
+      <!-- Multi-Tab Row Container Target Header -->
+      <div id="editor-tab-row"></div>
+
+      <div class="editor-status-bar">
+        <div id="file-path-breadcrumbs" style="font-family: monospace;">root / README.md</div>
+        <div id="editor-lang-indicator" style="color: #8b949e; font-weight:600; text-transform:uppercase; font-size:0.75rem;">markdown</div>
+      </div>
+
+      <div id="split-pane-editor-container">
+        <!-- Monaco Target Mounting Viewport -->
+        <div id="editor-viewport"></div>
+        <!-- Markdown Compiler Visual Element Target Box -->
+        <div id="markdown-preview-pane"></div>
+      </div>
+
+      <!-- Git Bash Command Terminal Box Screen -->
+      <div id="terminal-panel">
+        <div class="term-history" id="terminal-output-history">
+          Welcome to NexusGit Bash Shell Core Router Engine v1.5.<br>Try running "git add .", "git commit -m 'message'", or "clear".
+        </div>
+        <div class="term-input-line">
+          <span>nexusgit-user /workspace $</span>
+          <input type="text" id="terminal-raw-input" autocomplete="off" placeholder="Run local Git pipeline lifecycle commands here...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar Autonomous Code Prediction AI Interface Canvas Layout Panel -->
+    <aside id="ai-prediction-sidebar">
+      <div class="ai-header">🤖 Autonomous AI Prediction Core</div>
+      <div id="ai-chat-viewport">
+        <div class="msg bot">System active. Type your command. I will run calculation predictions and inject source code exactly at your active cursor position.</div>
+      </div>
+      <div class="ai-input-bar">
+        <input type="text" id="ai-prompt-input" placeholder="Ask AI for predictive programming blocks...">
+        <button onclick="triggerAiCodePredictionInference()">Predict</button>
+      </div>
+    </aside>
+
+    <!-- File Drop UI Mask Layer Overlay -->
+    <div id="drop-overlay">
+      <div style="font-size: 1.3rem; color: #58a6ff; font-weight: 600;">📥 Drop workspace assets directly here to inject into code system loops.</div>
+    </div>
+
+    <!-- Overlay Component Tab Screens Module Views -->
+    
+    <div id="view-pages" class="view-overlay">
+      <h2>🌐 GitHub Pages Site Deployment Engine</h2>
+      <p style="color: #8b949e; margin-top:4px; font-size:0.9rem;">Deploy custom multi-language websites inside local web frames instantly.</p>
+      
+      <div class="deploy-form">
+        <div class="form-group">
+          <label>Target Subdomain URL String Configuration</label>
+          <input type="text" id="deployment-target-url-field" value="my-ultimate-app-deployment-site.local">
+        </div>
+        <div class="form-group">
+          <label>Staging Source Root Target Branch</label>
+          <input type="text" value="/root/main" disabled style="background:#161b22; color:#8b949e;">
+        </div>
+        <button class="btn-action btn-success" style="padding:10px;" onclick="executeSiteDeployment()">🚀 Initialize Live Web Production Infrastructure</button>
+      </div>
+      <!-- Web Sandboxed Testing Simulation Viewport Frame -->
+      <iframe id="live-site-sandbox-frame"></iframe>
+    </div>
+
+    <div id="view-issues" class="view-overlay">
+      <h2>Open Issues Tracker Panel Dashboard</h2>
+      <div class="mock-row" style="margin-top:20px;"><strong>#101</strong> Buildozer .spec variables throwing missing runtime layout configuration exception parameters.</div>
+    </div>
+
+    <div id="view-actions" class="view-overlay">
+      <h2>CI/CD Pipeline Automation Run Logs</h2>
+      <div class="mock-row" style="border-left: 4px solid #238636; margin-top:20px;">🟢 <strong>Production Workflow Deploy</strong> - main.yml executed successfully. Built site assets compiled.</div>
+    </div>
+
+    <div id="view-settings" class="view-overlay">
+      <h2>Repository Administration Settings Panel</h2>
+      <div class="mock-row" style="margin-top:20px;"><p style="color:#da3633; font-weight:600;">Danger Zone</p><br><button class="btn-action btn-success" style="background:#da3633; border:none;">Wipe Virtual File System Cache</button></div>
+    </div>
+
+  </div>
+
+  <!-- Monaco Core Global System Environment CDN Injector Scripts Loader Hook Matrix -->
+  <script src="cloudflare.com"></script>
+  <script>
+    // Universal Core System Datastore State Index (VFS Database)
+    let virtualFileSystem = {
+      "README.md": { isFolder: false, parent: null, type: "markdown", code: "# 🚀 NexusGit Ultimate Cloud IDE\n\nWelcome to your full-stack local enterprise development system. \n\n### ⚡ Implemented Capabilities:\n1. **Full Language Highlighting:** Monaco Editor handles Python, Lua, Java, Ruby, PHP, and more.\n2. **Split Markdown Previews:** Real-time documentation rendering updates instantly.\n3. **Automated Site Hosting:** The Create Site action initializes and deploys a live browser sandbox.\n4. **Autonomous AI Prediction Panel:** Instruct the AI to insert custom programming blocks directly into your files." },
+      "index.html": { isFolder: false, parent: null, type: "html", code: "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { background: #0d1117; color: #58a6ff; font-family: system-ui, sans-serif; text-align: center; padding-top: 100px; }\n    h1 { color: #238636; font-size: 3rem; }\n  </style>\n</head>\n<body>\n  <h1>🌐 Hello World Live Website Deployed!</h1>\n  <p>Your local code structure has compiled into this sandboxed iframe viewer.</p>\n</body>\n</html>" },
+      "main.py": { isFolder: false, parent: null, type: "python", code: "def execute_pipeline_operations():\n    print(\"NexusGit multi-language terminal pipeline operational loops checking complete.\")\n    return True\n\nif __name__ == '__main__':\n    execute_pipeline_operations()" },
+      "buildozer.spec": { isFolder: false, parent: null, type: "ini", code: "[app]\ntitle = AutomatedTargetApp\npackage.name = ultimateapp\nsource.dir = .\nversion = 1.0.0\n\n[buildozer]\nlog_level = 2" }
+    };
+
+    let activeFilePath = "README.md";
+    let openTabsList = ["README.md", "index.html", "main.py"]; // Active multi-tab tracking system index
+    let editorInstance = null;
+    let gitStagedFilesTrackerArray = [];
+    const dropOverlay = document.getElementById('drop-overlay');
+
+    // Configure Monaco Environment Core Mappings Loading Hooks Setup Loops
+    require.config({ paths: { 'vs': 'cloudflare.com' } });
+    
+    require(['vs/editor/editor.main'], function() {
+      
+      // Register custom compiler highlight parsers tokens definitions mapping layers for .spec extensions
+      monaco.languages.register({ id: 'ini' });
+      monaco.languages.setMonarchTokensProvider('ini', {
+        tokenizer: { root: [ [/^\[.*\]$/, 'keyword'], [/^[^=]+/, 'variable'], [/=.*/, 'string'], [/^#.*/, 'comment'] ] }
+      });
+
+      // Construct core Monaco Engine Instance Object parameters configurations
+      editorInstance = monaco.editor.create(document.getElementById('editor-viewport'), {
+        value: virtualFileSystem[activeFilePath].code,
+        language: virtualFileSystem[activeFilePath].type,
+        theme: 'vs-dark',
+        automaticLayout: true,
+        suggestOnTriggerCharacters: true,
+        quickSuggestions: { other: true, comments: true, strings: true },
+        parameterHints: { enabled: true },
+        fontFamily: "'Fira Code', 'Courier New', monospace",
+        fontSize: 13,
+        minimap: { enabled: true } // Visual anchor navigations minimap layer
+      });
+
+      // Synchronize runtime editor changes back into active datastore arrays indices seamlessly
+      editorInstance.onDidChangeModelContent(() => {
+        if(virtualFileSystem[activeFilePath]) {
+          virtualFileSystem[activeFilePath].code = editorInstance.getValue();
+          if(virtualFileSystem[activeFilePath].type === 'markdown') {
+            updateMarkdownPreviewPanel();
+          }
+        }
+      });
+
+      // Run Graphical Layout Compilation Render Chains
+      renderFileSystemTree();
+      renderEditorTabsRow();
+      setupInteractiveTerminalBashShell();
+    });
+
+    // Multi-Tab Editor Row Layout Graphics Generator Renderer Compiler Loop
+    function renderEditorTabsRow() {
+      const tabRowUi = document.getElementById('editor-tab-row');
+      tabRowUi.innerHTML = '';
+
+      openTabsList.forEach(path => {
+        const segments = path.split('/');
+        const fileName = segments[segments.length - 1];
+        
+        const tabDiv = document.createElement('div');
+        tabDiv.className = `editor-file-tab ${path === activeFilePath ? 'active' : ''}`;
+        tabDiv.innerHTML = `📄 ${fileName} <span class="close-tab-btn" onclick="closeEditorTabEvent(event, '${path}')">✕</span>`;
+        tabDiv.onclick = () => selectActiveFile(path);
+        
+        tabRowUi.appendChild(tabDiv);
+      });
+    }
+
+    function closeEditorTabEvent(event, path) {
+      event.stopPropagation(); // Avoid triggering switch selections loops metrics bubble events
+      openTabsList = openTabsList.filter(t => t !== path);
+      
+      if(activeFilePath === path && openTabsList.length > 0) {
+        activeFilePath = openTabsList[openTabsList.length - 1];
+      } else if (openTabsList.length === 0) {
+        // Safe baseline recovery paths if all files tabs wiped out
+        const keys = Object.keys(virtualFileSystem).filter(k => !virtualFileSystem[k].isFolder);
+        if(keys.length > 0) {
+          openTabsList.push(keys[0]);
+          activeFilePath = keys[0];
+        }
+      }
+      renderFileSystemTree();
+      selectActiveFile(activeFilePath);
+    }
+
+    // Graphical Sidebar VFS Tree Model Generator Renderer
+    function renderFileSystemTree() {
+      const treeUi = document.getElementById('vfs-tree-ui');
+      treeUi.innerHTML = '';
+
+      Object.keys(virtualFileSystem).sort().forEach(path => {
+        const item = virtualFileSystem[path];
+        const segments = path.split('/');
+        const name = segments[segments.length - 1];
+        
+       
