@@ -1,9 +1,10 @@
-name: Deploy to GitHub Pages
+# Simple workflow for deploying static content to GitHub Pages
+name: Deploy static content to Pages
 
 on:
   push:
-    branches:
-      - main  # Triggers the deployment whenever you push code to main
+    branches: ["main"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,9 +15,6 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Enforces modern Node.js 24 environment
-
 jobs:
   deploy:
     environment:
@@ -24,18 +22,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-
-      - name: Setup GitHub Pages
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
         uses: actions/configure-pages@v5
-
-      - name: Upload website files
-        uses: actions/upload-pages-artifact@v3.0.1
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: './WebSite'  # Targets your WebSite folder containing index.html
-
+          path: 'WebSite' # Points to your 'WebSite' folder
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4.0.5
+        uses: actions/deploy-pages@v4
+        
         
